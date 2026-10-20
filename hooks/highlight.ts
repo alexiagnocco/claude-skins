@@ -750,8 +750,10 @@ export function outputTokens(line: string): Token[] {
 
   for (const match of line.matchAll(pattern)) {
     const at = match.index ?? 0
+    // A failure word counting none (`0 failed`, `errors: 0`) says nothing failed.
+    const isNone = match[1] !== undefined && (/\b0\s*$/.test(line.slice(0, at)) || /^\s*[=:]\s*0\b/.test(line.slice(at + match[0].length)))
     push(tokens, line.slice(last, at), 'plain')
-    push(tokens, match[0], match[1] !== undefined ? 'del' : match[2] !== undefined ? 'warn' : match[3] !== undefined ? 'add' : match[4] !== undefined ? 'property' : 'number')
+    push(tokens, match[0], isNone ? 'plain' : match[1] !== undefined ? 'del' : match[2] !== undefined ? 'warn' : match[3] !== undefined ? 'add' : match[4] !== undefined ? 'property' : 'number')
     last = at + match[0].length
   }
 

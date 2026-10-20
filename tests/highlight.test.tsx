@@ -153,6 +153,16 @@ test('shell output picks out failures, warnings, passes, paths and numbers', () 
   expect(roles('C:\\Users\\me\\a.ps1')).toEqual({ 'C:\\Users\\me\\a.ps1': 'property' })
 })
 
+test('shell output leaves a failure word plain when it counts none', () => {
+  const roles = (line: string) => Object.fromEntries(outputTokens(line).filter(token => token.role !== 'plain').map(token => [token.text, token.role]))
+
+  expect(roles('8 passed, 0 failed')).toEqual({ '8': 'number', passed: 'add', '0': 'number' })
+  expect(roles('passed=39 failed=0')).toEqual({ passed: 'add', '39': 'number', '0': 'number' })
+  expect(roles('errors: 0')).toEqual({ '0': 'number' })
+  expect(roles('2 failed, 10 passed')).toEqual({ '2': 'number', failed: 'del', '10': 'number', passed: 'add' })
+  expect(roles('failed=1')).toEqual({ failed: 'del', '1': 'number' })
+})
+
 const SITE = { plugin: 'skins', viewport: { columns: 100, rows: 30 } } as const
 const STOCK: RenderElement = { type: 'Text', props: {}, children: ['stock row'] }
 
