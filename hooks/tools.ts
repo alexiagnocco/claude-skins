@@ -54,9 +54,10 @@ export function summarize(tool: string, input: unknown, cwd: string): string {
 
   const summary = ((): string => {
     switch (tool) {
+      // The call's own description says what a command does; the command opens under the row.
       case 'Bash':
       case 'PowerShell':
-        return textOf(fields.command)
+        return textOf(fields.description) || textOf(fields.command)
       case 'Read':
       case 'Edit':
       case 'MultiEdit':

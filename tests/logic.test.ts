@@ -78,6 +78,8 @@ test('a call summarises to the one thing worth a glance', async () => {
   expect(summarize('Bash', { command: 'pnpm test\n  --filter hub' }, '/w')).toBe('pnpm test')
   expect(summarize('Grep', { pattern: 'TODO', path: '/w/src' }, '/w')).toBe('TODO in src')
   expect(summarize('Bash', null, '/w')).toBe('')
+  expect(summarize('Bash', { command: 'cd a && chmod +x b && for t in c; do $t; done', description: 'Run the tests in both repos' }, '/w')).toBe('Run the tests in both repos')
+  expect(summarize('Bash', { command: 'ls', description: '' }, '/w')).toBe('ls')
 })
 
 test('tables and closed code fences are split out of a reply, and a fence keeps its table as code', async () => {
