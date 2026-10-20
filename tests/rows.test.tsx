@@ -436,6 +436,17 @@ test('the markdown pack draws alerts and task lists everywhere, headings and par
   expect(await off.find({ type: 'Text', text: 'stock row' })).toBeDefined()
 })
 
+test('a numbered step takes the text colour, a bullet the muted one', async ($, on) => {
+  stubEngine(on)
+
+  const text = 'Next:\n\n1. Run the tests\n2. Push\n\n- a note'
+  const ui = await $.ui.mount({ ...SITE, surface: 'terminal', component: 'AssistantMessage', requestId: 'steps', props: { text, isFirstOfReply: true } })
+
+  expect(((await ui.find({ type: 'Text', text: '1. ' })) as Found)?.props.color).toBe(noir.palette.fg)
+  expect(((await ui.find({ type: 'Text', text: '• ' })) as Found)?.props.color).toBe(noir.palette.muted)
+  await ui.unmount()
+})
+
 test('a terminal table sizes Korean, Chinese, Japanese and emoji cells to their full width', async ($, on) => {
   stubEngine(on)
 

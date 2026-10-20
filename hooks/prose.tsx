@@ -70,10 +70,12 @@ function lineRow(look: Look, line: Line) {
   }
 
   const mark = line.bullet === '•' ? glyphs(look).mark : line.bullet
+  // A step's number is read to keep place, so it takes the text colour; a bullet stays muted.
+  const color = line.bullet === '•' ? look.skin.palette.muted : look.skin.palette.fg
 
   return (
     <Box flexDirection="row" paddingLeft={line.depth * 2}>
-      <Text color={look.skin.palette.muted}>{`${mark} `}</Text>
+      <Text color={color}>{`${mark} `}</Text>
       {body}
     </Box>
   )
