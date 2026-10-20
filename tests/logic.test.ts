@@ -481,6 +481,8 @@ test('inline runs pick out code, emphasis, numbers, versions, paths and duration
   // Words with digits and snake_case stay plain.
   expect(styled('utf8 e2e my_var_name and/or')).toEqual([])
   expect(styled('*quiet* and ~~gone~~')).toEqual(['italic:quiet', 'strike:gone'])
+  // A comma after a number is punctuation; a clock time is one number.
+  expect(styled('Oct 15, at 09:28, then 1,234 rows by 16:42:53.')).toEqual(['number:15', 'number:09:28', 'number:1,234', 'number:16:42:53'])
 })
 
 test('quiet output splits a command on its separators and leaves quoted ones alone', () => {

@@ -40,7 +40,8 @@ const HIGHLIGHT: readonly (readonly [RunStyle, RegExp])[] = [
   ['path', /(?:(?:[A-Za-z]:[\\/]|~\/|\.{1,2}\/|(?<![\w)])\/(?=[\w.@-]+\/))[\w.@-]+(?:[\\/][\w.@-]+)*\/?|(?<![\w/.-])[\w@-]+(?:\/[\w.@-]+)*\/[\w-]+\.[A-Za-z][A-Za-z0-9]{0,5}\b)(?::\d+(?::\d+)?\b)?/],
   ['version', /(?<![\w.-])v\d+(?:\.\d+)*(?:-[\w.]+)?\b|(?<![\w.-])\d+\.\d+\.\d+(?:-[\w.]+)?\b/],
   ['duration', /(?<![\w.-])\d+(?:\.\d+)?(?:ns|µs|us|ms|s|min|h)\b/],
-  ['number', /(?<![\w.-])\d[\d,_]*(?:\.\d+)?%?(?![\w])/],
+  // A clock time is one number; a separator only counts between digits, so `15,` stays `15`.
+  ['number', /(?<![\w.-])(?:\d{1,2}:\d{2}(?::\d{2})?|\d+(?:[,_]\d+)*(?:\.\d+)?%?)(?![\w])/],
 ]
 
 // Splits plain text into runs, the earliest match of any kind taking each stretch.
