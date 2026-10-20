@@ -3,6 +3,7 @@ import { SHELLS, shellResultOf } from './shell'
 import type { ShellResult } from './shell'
 import { hunksOf } from './svg-diff'
 import type { DiffInput } from './svg-diff'
+import { drawnByWetware } from './wetware'
 
 // What a tool row shows when it is opened: the call's input in full, then its result in
 // the form the call's kind reads best in. Anything this cannot read is `stock`, which the
@@ -177,7 +178,8 @@ function genericBody(output: unknown): Body {
 
 // The result of a finished call, as the opened row draws it; `none` while it runs.
 export function bodyOf(tool: string, output: unknown, isErrored: boolean, isRunning: boolean, cwd: string): Body {
-  if (isRunning || output === undefined) {
+  // Wetware draws these answers below the row itself; an opened row shows the input alone.
+  if (isRunning || output === undefined || drawnByWetware(tool)) {
     return { kind: 'none' }
   }
 

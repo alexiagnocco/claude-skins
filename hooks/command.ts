@@ -9,7 +9,8 @@ export const DEFAULT_PREFS: Prefs = {
   rail: true,
   tables: 'on',
   shimmer: true,
-  band: true,
+  // Off: the status line carries the usage, in the skin's colours, from the palette file.
+  band: false,
   countdown: false,
   clipOutput: false,
   markdown: true,

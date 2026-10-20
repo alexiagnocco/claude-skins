@@ -775,15 +775,17 @@ export function replyRows(look: Look, segments: readonly Segment[], maxWidth: nu
 }
 
 // The word with a band of light sweeping through it, one letter a frame.
-export function spinnerRow(look: Look, word: string, frame: number, elapsedMs: number) {
+// `accent` colours the glyph and the light's edge; the skin's `user` slot by default.
+export function spinnerRow(look: Look, word: string, frame: number, elapsedMs: number, accent?: string) {
   const { Text } = look.ui
   const { palette } = look.skin
+  const lead = accent ?? palette.user
   const letters = [...word]
   const head = (frame % (letters.length + 8)) - 4
   const shade = (i: number): string => {
     const distance = Math.abs(i - head)
 
-    return distance === 0 ? palette.fg : distance === 1 ? palette.user : palette.muted
+    return distance === 0 ? palette.fg : distance === 1 ? lead : palette.muted
   }
   const runs: { color: string; text: string }[] = []
 
@@ -800,7 +802,7 @@ export function spinnerRow(look: Look, word: string, frame: number, elapsedMs: n
 
   return (
     <Text>
-      <Text color={palette.user}>{`${look.icons.frames[frame % look.icons.frames.length] ?? ''} `}</Text>
+      <Text color={lead}>{`${look.icons.frames[frame % look.icons.frames.length] ?? ''} `}</Text>
       {runs.map(run => (
         <Text color={run.color}>{run.text}</Text>
       ))}

@@ -68,6 +68,9 @@ const runSkin = ($: Engine, args: string) =>
     presentation: { isFullscreen: false, columns: 100 },
   })
 
+// The fork leaves the band off by default; these tests were written with it on.
+const BAND_ON = { band: true }
+
 // The engine's own answers, so a hook can mount without a session. A test answering
 // the environment or the store itself leaves them out.
 function stubEngine(on: On, own: { env?: boolean; store?: boolean; toast?: boolean; usage?: boolean; log?: boolean } = {}) {
@@ -77,7 +80,7 @@ function stubEngine(on: On, own: { env?: boolean; store?: boolean; toast?: boole
     on('env.get', () => ({ value: undefined }))
   }
   if (!own.store) {
-    on('store.get', () => ({ value: undefined }))
+    on('store.get', ($, e) => ({ value: e.key === 'prefs' ? BAND_ON : undefined }))
     on('store.set', () => ({ value: undefined }))
   }
   if (!own.toast) {
@@ -992,7 +995,7 @@ test('the band offers Compact, nudges at 70% context, and compacts on a press', 
   const toasts: string[] = []
   const clock = mock.clock(on, { now: 10_000 })
   on('session.cwd', () => ({ value: '/work' }))
-  on('store.get', () => ({ value: undefined }))
+  on('store.get', ($, e) => ({ value: e.key === 'prefs' ? BAND_ON : undefined }))
   on('ui.toast', ($, e) => {
     toasts.push(e.text)
     return { value: undefined }

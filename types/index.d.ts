@@ -94,6 +94,10 @@ export type Disclosure = 'auto' | 'open' | 'closed'
 // `$.skins.markdown`'s argument: where the tree draws, the markdown, the width in columns.
 export type SkinsMarkdownArgs = { surface: 'terminal' | 'desktop' | 'vscode' | 'mobile'; text: string; columns: number }
 
+// The active skin's colours as other mods read them (`skins.palette`), resolved for the
+// light or dark background. The same shape lands in the palette file for a status line.
+export type SharedPalette = { skin: string; isLight: boolean; colors: Record<SkinSlot, string> }
+
 declare module 'claude-code' {
   // What skins adds to `$` for other mods.
   interface EngineInterface {
@@ -138,6 +142,10 @@ declare module 'claude-code' {
       pinned: boolean
       settle: number
       lastReply: string
+      // The active skin's colours for other mods; null while skins is off.
+      palette: SharedPalette | null
+      // The spinner's word while a wetware call runs, and the call it belongs to.
+      memoryWord: { id: string; word: string } | null
     }
   }
 }

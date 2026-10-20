@@ -1,7 +1,7 @@
 import { atom, memberOf, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement, RenderSurface, Timer } from 'claude-code'
 
-import type { CustomSkin, Disclosure, Prefs, SkinSlot, SkinsMarkdownArgs, Touch, TurnStats, UsageSnap } from '../types'
+import type { CustomSkin, Disclosure, Prefs, SharedPalette, SkinSlot, SkinsMarkdownArgs, Touch, TurnStats, UsageSnap } from '../types'
 import { DEFAULT_PREFS, listing, nextTables, parsePrefs, runSkinCommand, TOGGLES, withCalm } from './command'
 import { buildCustom, resolveSkin, skinNames, withSlot } from './custom'
 import { forTheme, gnomeDark, macDark, resolveLight, windowsDark } from './light'
@@ -33,6 +33,8 @@ import { MAX_MARKDOWN, replySegments } from './reply'
 import { isDue, isNewer, LATEST_URL, STAR_NOTICE, starStep, updateNotice, versionOf } from './updates'
 import { hyperlinksFrom, touchOf } from './links'
 import type { Checked, Star } from './updates'
+import { paletteFile, paletteText, sharedPalette } from './share'
+import { drawnByWetware, memoryWord } from './wetware'
 
 const SETTINGS = 'skins-settings'
 const GALLERY = 'skins-gallery'
@@ -87,6 +89,10 @@ const touchedAtom = atom({ plugin: 'skins', key: 'touched' } as const, {} as Rec
 const foldsAtom = atom({ plugin: 'skins', key: 'folds' } as const, [] as string[])
 // The main loop's last answer, for `/skin copy`.
 const lastReplyAtom = atom({ plugin: 'skins', key: 'lastReply' } as const, '')
+// The active skin's colours for other mods; null while skins is off.
+const paletteAtom = atom({ plugin: 'skins', key: 'palette' } as const, null as SharedPalette | null)
+// The spinner's word while a wetware call runs.
+const memoryWordAtom = atom({ plugin: 'skins', key: 'memoryWord' } as const, null as { id: string; word: string } | null)
 
 const EDITS = new Set(['Edit', 'MultiEdit', 'Write'])
 const WRITES = new Set([...EDITS, 'NotebookEdit'])
@@ -105,6 +111,41 @@ async function activeSkin($: EngineInterface): Promise<Active | null> {
   const skin = resolveSkin(prefs.skin, custom)
 
   return skin === undefined ? null : { prefs, skin: forTheme(skin, await read($, lightAtom)), custom }
+}
+
+// The palette file's text as this process last wrote it. Undefined until the first write,
+// so every session writes once: a file left by a session that ran another skin is replaced.
+let publishedText: string | undefined
+
+// Shares the active skin with other mods (`skins.palette`) and with the status line (the
+// palette file). Writes only on a change: refreshTheme runs every few seconds on `auto`.
+async function publishPalette($: EngineInterface): Promise<void> {
+  const prefs = await read($, prefsAtom)
+  const skin = resolveSkin(prefs.skin, await read($, customAtom))
+  const isLight = await read($, lightAtom)
+  const palette = sharedPalette(skin === undefined ? undefined : forTheme(skin, isLight), isLight)
+  const text = paletteText(palette)
+
+  if (text === publishedText) {
+    return
+  }
+
+  publishedText = text
+  await update($, paletteAtom, () => palette)
+
+  // The file is for tools outside Claude Code: a failure to place it never stops the skin.
+  try {
+    const file = paletteFile({
+      override: await $.env.get('SKINS_PALETTE_FILE'),
+      home: (await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')),
+    })
+
+    if (file !== undefined) {
+      await $.fs.write(file, text)
+    }
+  } catch (error) {
+    $.ui.log(`palette file: ${error instanceof Error ? error.message : String(error)}`, { to: 'debug' })
+  }
 }
 
 // Whether the skin-code mod draws this reply's code in a VS Code theme. False when it is not
@@ -194,6 +235,7 @@ async function refreshTheme($: EngineInterface, theme?: unknown): Promise<boolea
   // A write redraws every row, and the system is asked again every few seconds.
   if ((await read($, lightAtom)) !== isLight) {
     await update($, lightAtom, () => isLight)
+    await publishPalette($)
   }
 
   return dark !== undefined
@@ -395,6 +437,7 @@ async function load($: EngineInterface): Promise<void> {
   await update($, customAtom, () => custom)
   await update($, prefsAtom, () => prefs)
   await update($, pinnedAtom, () => Object.hasOwn(folders, folder))
+  await publishPalette($)
   // Links stay text if the environment cannot be read; the look loads either way.
   await readHyperlinks($).catch((error: unknown) => {
     $.ui.log(`hyperlink check: ${error instanceof Error ? error.message : String(error)}`, { to: 'debug' })
@@ -488,6 +531,7 @@ async function runFolderCommand($: EngineInterface, word: string): Promise<strin
       await $.store.set('folders', withoutFolder(folders, folder))
       await update($, pinnedAtom, () => false)
       await update($, prefsAtom, () => fallback)
+      await publishPalette($)
 
       return `this folder follows the default: ${fallback.skin}`
     }
@@ -581,6 +625,7 @@ async function askForStar($: EngineInterface): Promise<void> {
 async function commit($: EngineInterface, state: DesignState): Promise<void> {
   await update($, customAtom, () => state.custom)
   await update($, prefsAtom, () => state.prefs)
+  await publishPalette($)
   await $.store.set('custom', state.custom)
   await savePrefs($, state.prefs)
 }
@@ -781,8 +826,24 @@ export const register: Register = on => {
       await update($, memberOf(commandAtom, { requestId: e.tool_use_id }), () => command)
     }
 
+    // A wetware call on the main loop gives the spinner a memory word while it runs.
+    const word = e.agentId === undefined ? memoryWord(e.tool) : undefined
+
+    if (word !== undefined) {
+      await update($, memoryWordAtom, () => ({ id: e.tool_use_id, word }))
+    }
+
     const startedAt = await $.clock.now()
-    const ran = await next(e)
+    let ran: Awaited<ReturnType<typeof next>>
+
+    try {
+      ran = await next(e)
+    } finally {
+      if (word !== undefined) {
+        await update($, memoryWordAtom, held => (held?.id === e.tool_use_id ? null : held))
+      }
+    }
+
     const ms = (await $.clock.now()) - startedAt
 
     await update($, memberOf(durationAtom, { requestId: e.tool_use_id }), () => ms)
@@ -1030,6 +1091,11 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
+    // Wetware draws these answers itself, in the skin; the row above stays the skin's.
+    if (drawnByWetware(e.props.tool)) {
+      return next(e)
+    }
+
     const active = await activeSkin($)
     const output = e.props.output as { stdout?: unknown } | null
     const copy = (text: string) => {
@@ -1211,17 +1277,22 @@ export const register: Register = on => {
       return next(e)
     }
 
+    // While a wetware call runs the spinner says what memory is doing, unless the person
+    // keeps Claude Code's own words.
+    const held = await read($, memoryWordAtom)
+    const memory = held !== null && active.prefs.words === 'skin' ? held.word : undefined
+
     if (e.surface !== 'terminal') {
       const look = lookOf($.ui.resolve(e), active, e.surface)
 
       // Calm keeps the app's own, quieter spinner.
       return look.svg === undefined || active.prefs.calm !== null
         ? next(e)
-        : desktopSpinnerRow(look, look.svg, e.props.mode, e.props.message ?? e.props.word)
+        : desktopSpinnerRow(look, look.svg, e.props.mode, e.props.message ?? memory ?? e.props.word)
     }
 
     // words claude keeps Claude Code's own word, whatever the skin says.
-    const word = active.prefs.words === 'claude' ? e.props.word : (pick(active.skin.spinner, e.props.word) ?? e.props.word)
+    const word = memory ?? (active.prefs.words === 'claude' ? e.props.word : (pick(active.skin.spinner, e.props.word) ?? e.props.word))
 
     if (!active.prefs.shimmer || e.props.message !== null) {
       return next({ ...e, props: { ...e.props, word } })
@@ -1231,7 +1302,9 @@ export const register: Register = on => {
     const startedAt = await read($, startedAtom)
     const elapsed = startedAt === 0 ? 0 : (await $.clock.now()) - startedAt
 
-    return spinnerRow(lookOf($.ui.resolve(e), active, e.surface), word, frame, elapsed)
+    const look = lookOf($.ui.resolve(e), active, e.surface)
+
+    return spinnerRow(look, word, frame, elapsed, memory === undefined ? undefined : look.skin.palette.mcp)
   })
 
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {

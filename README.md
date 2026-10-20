@@ -15,6 +15,25 @@
 
 <img alt="Claude Code switching skins with /skin: a coding turn in Noir and Tokyo Night, then Mermaid chart cards in Dracula (xy chart), Catppuccin (sankey), Rosé Pine (radar) and Gruvbox (treemap)" src="docs/demo.gif">
 
+## This fork
+
+A personal fork of [hellosverre/claude-skins](https://github.com/hellosverre/claude-skins) that
+shares the skin with the [wetware](https://github.com/alexiagnocco/wetware) memory mod and a
+status line script. It loads from a local checkout (`--plugin-dir` or `CLAUDE_CODE_PLUGIN_DIRS`),
+not from the marketplace. What it adds, all in [`hooks/share.ts`](hooks/share.ts),
+[`hooks/wetware.ts`](hooks/wetware.ts) and their calls in `register.tsx`:
+
+| Addition | What it does |
+|---|---|
+| `skins.palette` state | The active skin's colours, resolved for light or dark, `null` while off. Any mod reads it with `$.state.get({ plugin: 'skins', key: 'palette' })`; a read while drawing redraws on every `/skin` switch |
+| Palette file | The same JSON at `~/.claude/skins/palette.json` (`{"skin":"off",…,"colors":null}` while off), written when it changes. `SKINS_PALETTE_FILE` moves it; `off` writes none |
+| Band off by default | The usage band starts off: the status line carries the usage. `/skin band on` brings it back |
+| Wetware answers | `mcp__wetware__wetware_search`, `get`, `why` and `task_*` answers are left to the wetware mod, which draws them as cards in the skin. Their opened row shows the input alone |
+| Memory words | While a wetware call runs on the main loop, the spinner says Recalling, Remembering, Consolidating or Filing, in the skin's `mcp` colour (`/skin words claude` keeps Claude Code's own) |
+
+The daily update check still reads upstream's `plugin.json`, so its toast is the signal to
+rebase: `git fetch upstream && git rebase upstream/main`.
+
 ## Install
 
 Needs Claude Code **2.1.287** or later, in a terminal or the desktop app's Code tab. Run both inside Claude Code:
